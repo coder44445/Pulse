@@ -1,4 +1,7 @@
-# Shared Core Infrastructure
+# Shared Core Infrastructure — Production Base Configuration
+# DB and Redis ports are NOT exposed to the host machine for network security.
+# Microservices connect internally via the private 'pulse_shared' network.
+
 services:
   db:
     image: postgres:16
@@ -10,8 +13,6 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./init-dbs.sh:/docker-entrypoint-initdb.d/init-dbs.sh
-    ports:
-      - "5432:5432"
     networks:
       - shared
     healthcheck:
@@ -25,8 +26,6 @@ services:
     image: redis:7
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     networks:
       - shared
     healthcheck:

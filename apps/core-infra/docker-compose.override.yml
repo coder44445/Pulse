@@ -1,0 +1,12 @@
+# Local Development Override Configuration
+# Automatically loaded by Docker Compose when running locally.
+# Exposes DB (5432) and Redis (6379) ports to localhost for dev debugging and native service runs.
+
+services:
+  db:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
