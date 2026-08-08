@@ -1,0 +1,17 @@
+# pulse/apps/persona/app.yaml
+name: persona
+
+stacks:
+  backend:
+    compose: ../persona/docker-compose.yml
+
+dependencies:
+  - core-infra
+
+idle_timeout: 30m
+
+health:
+  backend: http://localhost:8001/healthz
+
+routes:
+  - /api/persona

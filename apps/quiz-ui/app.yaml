@@ -1,0 +1,14 @@
+name: quiz-ui
+
+stacks:
+  frontend:
+    compose: ../open-quiz-web/docker-compose.yml
+
+dependencies:
+  - quiz
+
+routes:
+  - /quiz
+
+health:
+  backend: http://localhost:3000

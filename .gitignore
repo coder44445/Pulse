@@ -1,0 +1,11 @@
+# Rust build artifacts
+/target
+
+# SQLite runtime database files (generated at runtime)
+pulse.db
+pulse.db-shm
+pulse.db-wal
+
+# Dashboard node modules and build output
+pulse-dashboard/node_modules
+pulse-dashboard/dist

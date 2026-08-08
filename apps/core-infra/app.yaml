@@ -1,0 +1,9 @@
+name: core-infra
+
+stacks:
+  backend:
+    compose: apps/core-infra/docker-compose.yml
+
+dependencies: []
+
+routes: []

@@ -1,0 +1,18 @@
+# apps/quiz/app.yaml
+name: quiz
+
+stacks:
+  backend:
+    compose: ../fastapi-app/docker-compose.yml
+
+dependencies:
+  - persona
+  - core-infra
+
+idle_timeout: 10m
+
+health:
+  backend: http://localhost:8000/healthz
+
+routes:
+  - /api/quiz

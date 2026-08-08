@@ -1,0 +1,17 @@
+# pulse/apps/identity/app.yaml
+name: identity
+
+stacks:
+  backend:
+    compose: ../identity/docker-compose.yml
+
+dependencies:
+  - core-infra
+
+idle_timeout: 30m
+
+health:
+  backend: http://localhost:8002/healthz
+
+routes:
+  - /api/identity
