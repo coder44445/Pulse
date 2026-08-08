@@ -3,7 +3,7 @@ name: quiz
 
 stacks:
   backend:
-    compose: ../fastapi-app/docker-compose.yml
+    compose: ../open-quiz-svc/docker-compose.yml
 
 dependencies:
   - persona
