@@ -1,0 +1,26 @@
+{
+  "name": "pulse-ui-core",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup && tsc -p tsconfig.build.json",
+    "dev": "tsup --watch"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
+    "lucide-react": "^1.29.0",
+    "react": "^19.2.8",
+    "tsup": "^8.5.1",
+    "typescript": "^7.0.2"
+  }
+}

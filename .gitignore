@@ -8,5 +8,11 @@ pulse.db-wal
 
 # Dashboard node modules and build output
 pulse-dashboard/node_modules
-pulse-dashboard/distpulse-dashboard/dist_old
+pulse-dashboard/dist
+pulse-dashboard/dist_old
 serve.log
+
+# UI Core node modules and build output
+pulse-ui-core/node_modules
+pulse-ui-core/dist
+
