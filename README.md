@@ -389,14 +389,3 @@ sqlite3 pulse.db "SELECT name, state, last_activity FROM applications;"
 | CLI | clap 4 |
 | Dashboard | React 18 + Vite + TypeScript + Tailwind CSS |
 | Container runtime | Docker Compose v2 |
-
----
-
-## Contributing
-
-Each phase in [build.md](build.md) is self-contained and has a clear exit criterion. When adding new features:
-
-1. Find the correct module boundary (`src/docker/` for Docker, `src/lifecycle/` for decisions, `src/api/` for HTTP surface)
-2. Write the app.yaml field first if the feature requires new config
-3. Ensure `cargo build` passes before opening a PR
-4. Do not import `tokio::process` outside of `src/docker/`
