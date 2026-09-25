@@ -48,6 +48,11 @@ function ToastBar({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id: number) 
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
+function getAppUrl(route: string) {
+  if (/^https?:\/\//i.test(route)) return route
+  return `http://localhost:9000${route.startsWith('/') ? route : `/${route}`}`
+}
+
 export default function App() {
   const [apps, setApps] = useState<ApplicationDetail[]>([])
   const [loading, setLoading] = useState(true)
@@ -149,8 +154,7 @@ export default function App() {
     )
   }
 
-  // Filter apps that have routes that do NOT start with /api
-  const storeApps = apps.filter(a => a.routes.length > 0 && !a.routes[0].startsWith('/api'))
+  const storeApps = apps.filter((a) => a.routes?.length > 0)
 
   return (
     <div className="flex min-h-screen text-slate-100 selection:bg-indigo-500/30">
@@ -241,7 +245,9 @@ export default function App() {
                       </p>
                     </div>
                     <a
-                      href={app.routes[0]}
+                      href={getAppUrl(app.routes[0])}
+                      target="_blank"
+                      rel="noreferrer"
                       className="btn-primary w-full py-3 text-center block"
                     >
                       Play Now

@@ -10,6 +10,11 @@ interface AppCardProps {
   onAction: (action: 'start' | 'stop' | 'restart', id: string) => void
 }
 
+function getAppUrl(route: string) {
+  if (/^https?:\/\//i.test(route)) return route
+  return `http://localhost:9000${route.startsWith('/') ? route : `/${route}`}`
+}
+
 export function AppCard({ app, busy, onAction }: AppCardProps) {
   const s = statusColor(app.status)
   const isRunning = app.status === 'running'
@@ -60,6 +65,19 @@ export function AppCard({ app, busy, onAction }: AppCardProps) {
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2 pt-4 border-t border-white/5">
+          {app.routes?.[0] && (
+            <a
+              href={getAppUrl(app.routes[0])}
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 btn-micro flex items-center justify-center gap-2 rounded-xl bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-300 border border-sky-500/20
+                hover:bg-sky-500/20 hover:border-sky-500/40 hover:shadow-[0_0_15px_rgba(59,130,246,0.15)] transition-all"
+            >
+              <Activity className="w-4 h-4" />
+              Open
+            </a>
+          )}
+
           <button
             onClick={() => onAction('start', app.name)}
             disabled={isRunning || busy}
