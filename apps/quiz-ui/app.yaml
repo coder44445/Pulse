@@ -1,5 +1,8 @@
 name: quiz-ui
 
+# Tier 2 — on-demand: cold-started by proxy on first request.
+tier: 2
+
 stacks:
   frontend:
     compose: ../open-quiz-web/docker-compose.yml
@@ -11,4 +14,4 @@ routes:
   - /quiz
 
 health:
-  backend: http://localhost:3000
+  backend: http://localhost:3000/quiz/healthz

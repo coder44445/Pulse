@@ -1,5 +1,8 @@
 name: core-infra
 
+# Tier 0 — control-plane: always on, never idle-stopped, no dependencies.
+tier: 0
+
 stacks:
   backend:
     compose: apps/core-infra/docker-compose.yml

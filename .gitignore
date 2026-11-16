@@ -16,3 +16,8 @@ serve.log
 pulse-ui-core/node_modules
 pulse-ui-core/dist
 
+# Root pnpm and node
+node_modules
+.pnpm-store
+
+

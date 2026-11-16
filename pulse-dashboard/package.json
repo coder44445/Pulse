@@ -11,7 +11,7 @@
   "dependencies": {
     "framer-motion": "^13.0.0",
     "lucide-react": "^1.28.0",
-    "pulse-ui-core": "file:../../pulse-ui-core",
+    "pulse-ui-core": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

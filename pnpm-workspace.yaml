@@ -1,0 +1,6 @@
+packages:
+  - 'pulse-dashboard'
+  - 'pulse-ui-core'
+
+allowBuilds:
+  esbuild: true

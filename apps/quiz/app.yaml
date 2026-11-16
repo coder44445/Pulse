@@ -1,6 +1,9 @@
 # apps/quiz/app.yaml
 name: quiz
 
+# Tier 2 — on-demand: cold-started by proxy on first request.
+tier: 2
+
 stacks:
   backend:
     compose: ../open-quiz-svc/docker-compose.yml

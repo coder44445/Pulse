@@ -18,7 +18,7 @@ down:
 
 ## Start the Dashboard frontend (port 4173)
 dashboard:
-	cd pulse-dashboard && npm run dev
+	cd pulse-dashboard && pnpm dev
 
 ## Start the Quiz frontend (port 3000) — for development with hot-reload
 quiz:
@@ -30,7 +30,7 @@ build:
 
 ## Check that everything compiles (no warnings as errors)
 check:
-	cargo check && cd pulse-dashboard && npm run build
+	cargo check && cd pulse-dashboard && pnpm build
 
 ## Initial git commit or stage all changes
 commit:

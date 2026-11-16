@@ -1,0 +1,11 @@
+{
+  "name": "pulse",
+  "private": true,
+  "scripts": {
+    "dev:dashboard": "pnpm --filter pulse-dashboard dev",
+    "build:dashboard": "pnpm --filter pulse-dashboard build",
+    "build:ui-core": "pnpm --filter pulse-ui-core build",
+    "dev:ui-core": "pnpm --filter pulse-ui-core dev",
+    "build": "pnpm --filter pulse-ui-core build && pnpm --filter pulse-dashboard build"
+  }
+}

@@ -1,14 +1,16 @@
 # pulse/apps/identity/app.yaml
 name: identity
 
+# Tier 1 — pinned: auto-started by pulse at boot, never idle-stopped.
+# Identity must be up before any other service needs token validation.
+tier: 1
+
 stacks:
   backend:
     compose: ../identity/docker-compose.yml
 
 dependencies:
   - core-infra
-
-idle_timeout: 30m
 
 health:
   backend: http://localhost:8002/healthz

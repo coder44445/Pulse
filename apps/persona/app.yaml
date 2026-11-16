@@ -1,14 +1,16 @@
 # pulse/apps/persona/app.yaml
 name: persona
 
+# Tier 1 — pinned: auto-started by pulse at boot, never idle-stopped.
+# Persona is started after identity (dependency order is respected).
+tier: 1
+
 stacks:
   backend:
     compose: ../persona/docker-compose.yml
 
 dependencies:
   - core-infra
-
-idle_timeout: 30m
 
 health:
   backend: http://localhost:8001/healthz
