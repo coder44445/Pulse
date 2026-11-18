@@ -79,5 +79,5 @@ pub async fn get_idle_duration(
     .await?
     .flatten();
 
-    Ok(diff_seconds.map(|secs| std::time::Duration::from_secs_f64(secs)))
+    Ok(diff_seconds.map(std::time::Duration::from_secs_f64))
 }

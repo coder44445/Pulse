@@ -145,13 +145,11 @@ impl LifeCycleManager {
             if norm == "running" || norm == "starting" {
                 let mut is_running = false;
                 for stack in app.stacks.values() {
-                    if let Ok(st) = runtime.status(&stack.compose).await {
-                        if st.to_lowercase().contains("running")
-                            || st.to_lowercase().contains("up")
-                        {
-                            is_running = true;
-                            break;
-                        }
+                    if let Ok(st) = runtime.status(&stack.compose).await
+                        && (st.to_lowercase().contains("running") || st.to_lowercase().contains("up"))
+                    {
+                        is_running = true;
+                        break;
                     }
                 }
                 if !is_running {
@@ -352,11 +350,11 @@ impl LifeCycleManager {
 
             // Health-check the dependency before moving to the next
             self.set_state(&dep_name, State::HealthCheck).await?;
-            if let Some(url) = &dep_app.health.backend {
-                if let Err(err) = health::checker::wait_until_healthy(url, 60).await {
-                    self.set_state(&dep_name, State::Failed).await?;
-                    anyhow::bail!("dependency {} failed health check: {}", dep_name, err);
-                }
+            if let Some(url) = &dep_app.health.backend
+                && let Err(err) = health::checker::wait_until_healthy(url, 60).await
+            {
+                self.set_state(&dep_name, State::Failed).await?;
+                anyhow::bail!("dependency {} failed health check: {}", dep_name, err);
             }
             self.set_state(&dep_name, State::Running).await?;
         }
@@ -368,11 +366,11 @@ impl LifeCycleManager {
         self.set_state(name, State::HealthCheck).await?;
 
         // Wait for the app-level health endpoint (health.backend in app.yaml).
-        if let Some(url) = &app.health.backend {
-            if let Err(err) = health::checker::wait_until_healthy(url, 60).await {
-                self.set_state(name, State::Failed).await?;
-                return Err(err);
-            }
+        if let Some(url) = &app.health.backend
+            && let Err(err) = health::checker::wait_until_healthy(url, 60).await
+        {
+            self.set_state(name, State::Failed).await?;
+            return Err(err);
         }
 
         self.set_state(name, State::Running).await?;
@@ -504,12 +502,12 @@ fn detect_cycle(
 
     stack.insert(node.to_string());
 
-    if let Some(app) = app_map.get(node) {
-        if let Some(deps) = &app.dependencies {
-            for dep in deps {
-                detect_cycle(app_map, dep, visited, stack)
-                    .with_context(|| format!("  ← '{node}' depends on '{dep}'"))?;
-            }
+    if let Some(app) = app_map.get(node)
+        && let Some(deps) = &app.dependencies
+    {
+        for dep in deps {
+            detect_cycle(app_map, dep, visited, stack)
+                .with_context(|| format!("  ← '{node}' depends on '{dep}'"))?;
         }
     }
 
@@ -526,7 +524,7 @@ fn stop_order(apps: &[Application]) -> Vec<String> {
     for app in apps {
         let mut visited = HashSet::new();
         let mut dep_names = Vec::new();
-        let _ = collect_dependency_names_for_app(app, &app_map, &mut visited, &mut dep_names);
+        collect_dependency_names_for_app(app, &app_map, &mut visited, &mut dep_names);
 
         for dep_name in dep_names {
             if seen.insert(dep_name.clone()) {

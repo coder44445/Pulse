@@ -1,12 +1,11 @@
 import React from 'react'
-import { LayoutDashboard, Terminal, Shield, User, Lock, Unlock } from 'lucide-react'
+import { LayoutDashboard, Terminal, User, Lock, Unlock } from 'lucide-react'
 import { UserBadge, type AuthUser } from 'pulse-ui-core'
 
 interface SidebarProps {
   user: AuthUser
   role: 'developer' | 'user'
   onRoleChange: (role: 'developer' | 'user') => void
-  isAdmin: boolean
   hasAdminKey: boolean
   onLockAdmin: () => void
   onRequestAdminUnlock: () => void
@@ -18,7 +17,6 @@ export function Sidebar({
   user,
   role,
   onRoleChange,
-  isAdmin,
   hasAdminKey,
   onLockAdmin,
   onRequestAdminUnlock,

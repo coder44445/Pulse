@@ -17,15 +17,12 @@ import { AdminUnlockModal } from './components/AdminUnlockModal'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth, AuthView, type AuthUser } from 'pulse-ui-core'
 import {
-  Activity,
-  Layers,
   Server,
   RefreshCw,
   ChevronDown,
   ChevronUp,
   Sparkles,
   Search,
-  Lock,
   ShieldCheck,
 } from 'lucide-react'
 
@@ -329,7 +326,6 @@ export default function App() {
         user={user!}
         role={role}
         onRoleChange={handleRoleChange}
-        isAdmin={userIsAdmin}
         hasAdminKey={hasAdminKey}
         onLockAdmin={handleLockAdmin}
         onRequestAdminUnlock={() => setIsUnlockModalOpen(true)}

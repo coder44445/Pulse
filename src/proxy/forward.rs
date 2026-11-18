@@ -79,8 +79,7 @@ pub fn is_websocket_upgrade(req: &Request<Body>) -> bool {
         .get(header::UPGRADE)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("")
-        .to_ascii_lowercase()
-        == "websocket";
+        .eq_ignore_ascii_case("websocket");
 
     has_upgrade_in_connection && upgrade_is_websocket
 }

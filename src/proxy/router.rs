@@ -86,7 +86,7 @@ impl ProxyState {
 
         // Longest prefix wins.
         let mut routes: Vec<(String, RouteEntry)> = map.into_iter().collect();
-        routes.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+        routes.sort_by_key(|b| std::cmp::Reverse(b.0.len()));
 
         eprintln!("[proxy] route table:");
         for (prefix, entry) in &routes {

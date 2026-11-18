@@ -13,7 +13,6 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
-use tokio;
 
 #[derive(Parser)]
 struct Cli {
@@ -184,24 +183,22 @@ async fn main() -> anyhow::Result<()> {
                             .await
                             .unwrap_or_default()
                             .unwrap_or_default();
-                            if lifecycle::manager::normalize_status(&raw_state) == "running" {
-                                if let Ok(Some(idle_duration)) =
+                            if lifecycle::manager::normalize_status(&raw_state) == "running"
+                                && let Ok(Some(idle_duration)) =
                                     storage::database::get_idle_duration(
                                         engine_clone.pool(),
                                         &app.name,
                                     )
                                     .await
-                                {
-                                    if idle_duration > timeout {
-                                        println!(
-                                            "[pulse] '{}' idle {}s > {}s — stopping",
-                                            app.name,
-                                            idle_duration.as_secs(),
-                                            timeout.as_secs()
-                                        );
-                                        let _ = engine_clone.stop(&app.name).await;
-                                    }
-                                }
+                                && idle_duration > timeout
+                            {
+                                println!(
+                                    "[pulse] '{}' idle {}s > {}s — stopping",
+                                    app.name,
+                                    idle_duration.as_secs(),
+                                    timeout.as_secs()
+                                );
+                                let _ = engine_clone.stop(&app.name).await;
                             }
                         }
                     }
@@ -244,5 +241,5 @@ fn start_dashboard() -> anyhow::Result<()> {
 }
 
 async fn build_engine() -> anyhow::Result<LifeCycleManager> {
-    Ok(LifeCycleManager::new().await?)
+    LifeCycleManager::new().await
 }

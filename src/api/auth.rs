@@ -19,11 +19,7 @@ pub fn validate_admin_key(header_val: Option<&str>) -> bool {
 
     match header_val {
         Some(val) => {
-            let key = if val.starts_with("Bearer ") {
-                &val[7..]
-            } else {
-                val
-            };
+            let key = val.strip_prefix("Bearer ").unwrap_or(val);
             key.trim() == expected.trim()
         }
         None => false,
