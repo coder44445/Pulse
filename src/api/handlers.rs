@@ -78,3 +78,28 @@ pub async fn restart_application(
 pub async fn server_health() -> StatusCode {
     StatusCode::OK
 }
+
+pub async fn verify_admin_key(
+    headers: axum::http::HeaderMap,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let header_opt = headers
+        .get("x-pulse-admin-key")
+        .or_else(|| headers.get("authorization"))
+        .and_then(|h| h.to_str().ok());
+
+    if super::auth::validate_admin_key(header_opt) {
+        Ok(Json(serde_json::json!({
+            "status": "ok",
+            "role": "admin",
+            "message": "Admin authenticated successfully"
+        })))
+    } else {
+        Err((
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "error": "Unauthorized",
+                "message": "Invalid or missing admin key"
+            })),
+        ))
+    }
+}

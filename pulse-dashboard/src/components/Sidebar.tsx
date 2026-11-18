@@ -1,5 +1,5 @@
 import React from 'react'
-import { Activity, LayoutDashboard, Terminal, Sparkles, Shield, User } from 'lucide-react'
+import { LayoutDashboard, Terminal, Shield, User, Lock, Unlock } from 'lucide-react'
 import { UserBadge, type AuthUser } from 'pulse-ui-core'
 
 interface SidebarProps {
@@ -7,6 +7,9 @@ interface SidebarProps {
   role: 'developer' | 'user'
   onRoleChange: (role: 'developer' | 'user') => void
   isAdmin: boolean
+  hasAdminKey: boolean
+  onLockAdmin: () => void
+  onRequestAdminUnlock: () => void
   engineConnected: boolean
   onLogout: () => void
 }
@@ -16,9 +19,20 @@ export function Sidebar({
   role,
   onRoleChange,
   isAdmin,
+  hasAdminKey,
+  onLockAdmin,
+  onRequestAdminUnlock,
   engineConnected,
   onLogout,
 }: SidebarProps) {
+  const handleModeClick = (targetRole: 'developer' | 'user') => {
+    if (targetRole === 'developer' && !hasAdminKey) {
+      onRequestAdminUnlock()
+    } else {
+      onRoleChange(targetRole)
+    }
+  }
+
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 border-r border-white/5 bg-slate-950/70 backdrop-blur-2xl flex flex-col z-40">
       {/* Brand Header */}
@@ -59,10 +73,19 @@ export function Sidebar({
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 View Mode
               </span>
-              {isAdmin && (
-                <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400 border border-amber-500/20">
-                  <Shield className="h-2.5 w-2.5" />
-                  Admin
+              {hasAdminKey ? (
+                <button
+                  onClick={onLockAdmin}
+                  title="Admin Key active. Click to lock."
+                  className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                >
+                  <Unlock className="h-2.5 w-2.5" />
+                  Unlocked
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 border border-white/5">
+                  <Lock className="h-2.5 w-2.5" />
+                  Protected
                 </span>
               )}
             </div>
@@ -70,7 +93,7 @@ export function Sidebar({
             <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-900/80 p-1 border border-white/5">
               <button
                 type="button"
-                onClick={() => onRoleChange('user')}
+                onClick={() => handleModeClick('user')}
                 className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
                   role === 'user'
                     ? 'bg-violet-600 text-white shadow-[0_2px_10px_rgba(124,58,237,0.4)]'
@@ -83,7 +106,7 @@ export function Sidebar({
 
               <button
                 type="button"
-                onClick={() => onRoleChange('developer')}
+                onClick={() => handleModeClick('developer')}
                 className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
                   role === 'developer'
                     ? 'bg-violet-600 text-white shadow-[0_2px_10px_rgba(124,58,237,0.4)]'
@@ -92,12 +115,13 @@ export function Sidebar({
               >
                 <Terminal className="h-3.5 w-3.5" />
                 <span>Developer</span>
+                {!hasAdminKey && <Lock className="h-2.5 w-2.5 opacity-60 ml-0.5" />}
               </button>
             </div>
             <p className="mt-2 px-2 text-[11px] text-slate-500 leading-tight">
               {role === 'user'
-                ? 'Showing simplified user view with direct app launch.'
-                : 'Showing developer console with tiers, stacks & service controls.'}
+                ? 'Simplified user launchpad. Apps cold-start via gateway proxy.'
+                : 'Developer console. Container lifecycle controls authenticated with Admin Key.'}
             </p>
           </div>
         </div>

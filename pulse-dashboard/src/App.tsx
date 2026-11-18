@@ -6,10 +6,14 @@ import {
   startApplication,
   stopApplication,
   restartApplication,
+  getStoredAdminKey,
+  setStoredAdminKey,
+  verifyAdminKey,
 } from './api'
 import { Sidebar } from './components/Sidebar'
 import { AppCard } from './components/AppCard'
 import { UserAppCard } from './components/UserAppCard'
+import { AdminUnlockModal } from './components/AdminUnlockModal'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth, AuthView, type AuthUser } from 'pulse-ui-core'
 import {
@@ -21,9 +25,8 @@ import {
   ChevronUp,
   Sparkles,
   Search,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
+  Lock,
+  ShieldCheck,
 } from 'lucide-react'
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -120,25 +123,64 @@ export default function App() {
   // Auth
   const { state: authState, user, login, register, logout } = useAuth()
 
-  // Role detection: Admin gets 'developer' by default, normal user gets 'user'
+  // Role & Admin Key State
   const userIsAdmin = useMemo(() => checkIsAdmin(user), [user])
   const [role, setRole] = useState<'developer' | 'user'>('user')
+  const [hasAdminKey, setHasAdminKey] = useState(false)
+  const [isUnlockModalOpen, setIsUnlockModalOpen] = useState(false)
 
+  // Verify Admin Key on bootstrap
   useEffect(() => {
-    if (user) {
-      const saved = localStorage.getItem('pulse_view_role') as 'developer' | 'user' | null
-      if (saved === 'developer' || saved === 'user') {
-        setRole(saved)
-      } else {
-        const detected = userIsAdmin ? 'developer' : 'user'
-        setRole(detected)
+    async function checkAuth() {
+      const key = getStoredAdminKey()
+      if (key) {
+        const isValid = await verifyAdminKey(key)
+        setHasAdminKey(isValid)
+        if (isValid) {
+          const savedRole = localStorage.getItem('pulse_view_role') as 'developer' | 'user' | null
+          if (savedRole === 'developer' || userIsAdmin) {
+            setRole('developer')
+          }
+        }
+      } else if (userIsAdmin) {
+        // Test default dev key
+        const isDevKeyValid = await verifyAdminKey('pulse-admin-secret')
+        if (isDevKeyValid) {
+          setStoredAdminKey('pulse-admin-secret')
+          setHasAdminKey(true)
+          setRole('developer')
+        }
       }
+    }
+
+    if (user) {
+      checkAuth()
     }
   }, [user, userIsAdmin])
 
   const handleRoleChange = (newRole: 'developer' | 'user') => {
+    if (newRole === 'developer' && !hasAdminKey) {
+      setIsUnlockModalOpen(true)
+      return
+    }
     setRole(newRole)
     localStorage.setItem('pulse_view_role', newRole)
+  }
+
+  const handleUnlockSuccess = () => {
+    setHasAdminKey(true)
+    setRole('developer')
+    setIsUnlockModalOpen(false)
+    localStorage.setItem('pulse_view_role', 'developer')
+    showToast('Developer console unlocked with Admin Key', 'success')
+  }
+
+  const handleLockAdmin = () => {
+    setStoredAdminKey(null)
+    setHasAdminKey(false)
+    setRole('user')
+    localStorage.setItem('pulse_view_role', 'user')
+    showToast('Developer console locked. Switched to User View.', 'info')
   }
 
   // Collapsible infrastructure section state
@@ -173,7 +215,7 @@ export default function App() {
     refreshApps()
   }
 
-  // App Actions
+  // App Actions (Protected with Admin Key)
   const handleAction = async (action: 'start' | 'stop' | 'restart', id: string) => {
     setBusyApps((prev) => new Set(prev).add(id))
     
@@ -193,6 +235,10 @@ export default function App() {
       
       showToast(`Successfully requested to ${action} ${id}`)
     } catch (err: any) {
+      if (err.message?.includes('Authentication Required') || err.message?.includes('Unauthorized')) {
+        setHasAdminKey(false)
+        setIsUnlockModalOpen(true)
+      }
       showToast(`Failed to ${action} ${id}: ${err.message}`, 'error')
     } finally {
       setTimeout(() => {
@@ -206,36 +252,11 @@ export default function App() {
     }
   }
 
-  // Smart launch for Normal User Mode
-  const handleUserLaunch = async (id: string, route: string) => {
-    setBusyApps((prev) => new Set(prev).add(id))
-    showToast(`Starting ${id}… please wait`, 'info')
-
-    setApps((currentApps) =>
-      currentApps.map((a) => (a.name === id ? { ...a, status: 'starting' } : a))
-    )
-
-    try {
-      await startApplication(id)
-      showToast(`Application started! Opening…`, 'success')
-      
-      // Short delay for healthcheck to stabilize, then open
-      setTimeout(() => {
-        window.open(getAppUrl(route), '_blank', 'noreferrer')
-        refreshApps()
-      }, 1200)
-    } catch (err: any) {
-      showToast(`Failed to start application: ${err.message}`, 'error')
-    } finally {
-      setTimeout(() => {
-        setBusyApps((prev) => {
-          const next = new Set(prev)
-          next.delete(id)
-          return next
-        })
-        refreshApps()
-      }, 1000)
-    }
+  // Normal User Launch: Navigates through Port 9000 Gateway
+  // The gateway automatically cold-starts on-demand services without requiring admin permissions!
+  const handleUserLaunch = (id: string, route: string) => {
+    showToast(`Launching ${id} via Gateway…`, 'info')
+    window.open(getAppUrl(route), '_blank', 'noreferrer')
   }
 
   // Partition applications: User-facing vs Infrastructure
@@ -307,6 +328,9 @@ export default function App() {
         role={role}
         onRoleChange={handleRoleChange}
         isAdmin={userIsAdmin}
+        hasAdminKey={hasAdminKey}
+        onLockAdmin={handleLockAdmin}
+        onRequestAdminUnlock={() => setIsUnlockModalOpen(true)}
         engineConnected={!error}
         onLogout={logout}
       />
@@ -336,8 +360,9 @@ export default function App() {
                     <span className="text-xs font-semibold uppercase tracking-wider text-violet-400">
                       Developer Control Plane
                     </span>
-                    <span className="rounded bg-violet-500/20 px-2 py-0.5 text-[10px] font-bold text-violet-300 border border-violet-500/30">
-                      Tier-Based Lifecycle
+                    <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/20">
+                      <ShieldCheck className="h-3 w-3" />
+                      Admin Key Authenticated
                     </span>
                   </div>
                   <h1 className="text-3xl font-extrabold tracking-tight text-white drop-shadow-lg">
@@ -579,6 +604,12 @@ export default function App() {
           )}
         </div>
       </main>
+
+      <AdminUnlockModal
+        isOpen={isUnlockModalOpen}
+        onClose={() => setIsUnlockModalOpen(false)}
+        onSuccess={handleUnlockSuccess}
+      />
 
       <ToastBar toasts={toasts} dismiss={dismissToast} />
     </div>

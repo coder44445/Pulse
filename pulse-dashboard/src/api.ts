@@ -5,18 +5,54 @@ import { Application, ApplicationDetail } from './types'
 // @ts-ignore
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
+const ADMIN_KEY_STORAGE = 'pulse_admin_key'
+
+export function getStoredAdminKey(): string | null {
+  return (
+    localStorage.getItem(ADMIN_KEY_STORAGE) ||
+    // @ts-ignore
+    import.meta.env.VITE_PULSE_ADMIN_KEY ||
+    null
+  )
+}
+
+export function setStoredAdminKey(key: string | null) {
+  if (key && key.trim()) {
+    localStorage.setItem(ADMIN_KEY_STORAGE, key.trim())
+  } else {
+    localStorage.removeItem(ADMIN_KEY_STORAGE)
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const adminKey = getStoredAdminKey()
+
+  const headers: Record<string, string> = {
+    ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
+    ...(adminKey ? { 'X-Pulse-Admin-Key': adminKey } : {}),
+    ...((options?.headers as Record<string, string>) || {}),
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: {
-      ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
-      ...options?.headers,
-    },
+    headers,
   })
 
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`${res.status} ${res.statusText}: ${text}`)
+    let errMessage = `${res.status} ${res.statusText}`
+    try {
+      const data = await res.json()
+      if (data.message) errMessage = data.message
+      else if (data.error) errMessage = data.error
+    } catch {
+      const text = await res.text()
+      if (text) errMessage = text
+    }
+
+    if (res.status === 401) {
+      throw new Error(`Authentication Required: ${errMessage}`)
+    }
+    throw new Error(errMessage)
   }
 
   if (res.status === 204) {
@@ -28,6 +64,23 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export const checkServerHealth = () =>
   fetch(`${API_BASE}/health`).then((r) => r.ok)
+
+export const verifyAdminKey = async (keyToTest?: string): Promise<boolean> => {
+  const key = keyToTest ?? getStoredAdminKey()
+  if (!key) return false
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/verify`, {
+      method: 'GET',
+      headers: {
+        'X-Pulse-Admin-Key': key.trim(),
+      },
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
 
 export const getApplications = () =>
   request<Application[]>('/applications')
