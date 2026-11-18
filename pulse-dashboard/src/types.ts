@@ -5,6 +5,7 @@ export interface Application {
   name: string
   status: AppStatus
   description?: string
+  tier?: number
 }
 
 export interface StackInfo {
@@ -22,4 +23,5 @@ export interface ApplicationDetail {
   dependencies: string[]
   idle_timeout?: string | null
   stacks: StackInfo[]
+  tier?: number
 }

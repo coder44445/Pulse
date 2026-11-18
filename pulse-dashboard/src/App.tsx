@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { Application, ApplicationDetail } from './types'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { ApplicationDetail } from './types'
 import {
   getApplications,
   getApplication,
@@ -9,14 +9,28 @@ import {
 } from './api'
 import { Sidebar } from './components/Sidebar'
 import { AppCard } from './components/AppCard'
+import { UserAppCard } from './components/UserAppCard'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useAuth, AuthView } from 'pulse-ui-core'
+import { useAuth, AuthView, type AuthUser } from 'pulse-ui-core'
+import {
+  Activity,
+  Layers,
+  Server,
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  HelpCircle,
+} from 'lucide-react'
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
 interface Toast {
   id: number
-  type: 'success' | 'error'
+  type: 'success' | 'error' | 'info'
   message: string
 }
 
@@ -30,15 +44,24 @@ function ToastBar({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id: number) 
             initial={{ opacity: 0, x: 50, scale: 0.9 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-            className={`pointer-events-auto flex items-center gap-3 rounded-2xl px-5 py-4 text-sm font-medium shadow-2xl border backdrop-blur-xl
-              ${t.type === 'error'
+            className={`pointer-events-auto flex items-center gap-3 rounded-2xl px-5 py-4 text-sm font-medium shadow-2xl border backdrop-blur-xl ${
+              t.type === 'error'
                 ? 'bg-rose-950/80 border-rose-500/30 text-rose-100 shadow-[0_10px_30px_rgba(225,29,72,0.2)]'
+                : t.type === 'info'
+                ? 'bg-sky-950/80 border-sky-500/30 text-sky-100 shadow-[0_10px_30px_rgba(56,189,248,0.2)]'
                 : 'bg-emerald-950/80 border-emerald-500/30 text-emerald-100 shadow-[0_10px_30px_rgba(16,185,129,0.2)]'
-              }`}
+            }`}
           >
-            <span className="text-lg">{t.type === 'error' ? '✖' : '✔'}</span>
+            <span className="text-lg">
+              {t.type === 'error' ? '✖' : t.type === 'info' ? 'ℹ' : '✔'}
+            </span>
             <span>{t.message}</span>
-            <button onClick={() => dismiss(t.id)} className="ml-3 p-1 rounded-full hover:bg-white/10 opacity-70 hover:opacity-100 transition">✕</button>
+            <button
+              onClick={() => dismiss(t.id)}
+              className="ml-3 p-1 rounded-full hover:bg-white/10 opacity-70 hover:opacity-100 transition"
+            >
+              ✕
+            </button>
           </motion.div>
         ))}
       </AnimatePresence>
@@ -46,16 +69,30 @@ function ToastBar({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id: number) 
   )
 }
 
-// ─── Main App ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getAppUrl(route: string) {
   if (/^https?:\/\//i.test(route)) return route
   return `http://localhost:9000${route.startsWith('/') ? route : `/${route}`}`
 }
 
+function isUserFacingApp(app: ApplicationDetail): boolean {
+  if (!app.routes || app.routes.length === 0) return false
+  return app.routes.some((r) => !r.startsWith('/api') && r !== '/healthz')
+}
+
+function checkIsAdmin(user: AuthUser | null): boolean {
+  if (!user) return false
+  const str = `${user.email} ${user.displayName}`.toLowerCase()
+  return str.includes('admin') || str.includes('dev')
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function App() {
   const [apps, setApps] = useState<ApplicationDetail[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
   // Track apps currently being mutated
@@ -65,21 +102,48 @@ export default function App() {
   const [toasts, setToasts] = useState<Toast[]>([])
   const nextToastId = useRef(1)
 
-  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-    const id = nextToastId.current++
-    setToasts((t) => [...t, { id, type, message }])
-    setTimeout(() => {
-      setToasts((t) => t.filter((toast) => toast.id !== id))
-    }, 4000)
-  }, [])
+  const showToast = useCallback(
+    (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+      const id = nextToastId.current++
+      setToasts((t) => [...t, { id, type, message }])
+      setTimeout(() => {
+        setToasts((t) => t.filter((toast) => toast.id !== id))
+      }, 4000)
+    },
+    []
+  )
 
   const dismissToast = useCallback((id: number) => {
     setToasts((t) => t.filter((toast) => toast.id !== id))
   }, [])
 
-  // Auth and View State
+  // Auth
   const { state: authState, user, login, register, logout } = useAuth()
-  const [currentView, setCurrentView] = useState<'store' | 'console'>('store')
+
+  // Role detection: Admin gets 'developer' by default, normal user gets 'user'
+  const userIsAdmin = useMemo(() => checkIsAdmin(user), [user])
+  const [role, setRole] = useState<'developer' | 'user'>('user')
+
+  useEffect(() => {
+    if (user) {
+      const saved = localStorage.getItem('pulse_view_role') as 'developer' | 'user' | null
+      if (saved === 'developer' || saved === 'user') {
+        setRole(saved)
+      } else {
+        const detected = userIsAdmin ? 'developer' : 'user'
+        setRole(detected)
+      }
+    }
+  }, [user, userIsAdmin])
+
+  const handleRoleChange = (newRole: 'developer' | 'user') => {
+    setRole(newRole)
+    localStorage.setItem('pulse_view_role', newRole)
+  }
+
+  // Collapsible infrastructure section state
+  const [infraOpen, setInfraOpen] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Data fetching
   const refreshApps = useCallback(async () => {
@@ -94,6 +158,7 @@ export default function App() {
       setError(e.message || 'Failed to connect to Pulse Engine')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }, [])
 
@@ -103,11 +168,16 @@ export default function App() {
     return () => clearInterval(interval)
   }, [refreshApps])
 
-  // Actions
+  const handleManualRefresh = () => {
+    setRefreshing(true)
+    refreshApps()
+  }
+
+  // App Actions
   const handleAction = async (action: 'start' | 'stop' | 'restart', id: string) => {
     setBusyApps((prev) => new Set(prev).add(id))
     
-    // Optimistically update the UI to 'starting' or 'stopping' for immediate feedback
+    // Optimistic status update
     setApps((currentApps) =>
       currentApps.map((a) =>
         a.name === id
@@ -125,7 +195,6 @@ export default function App() {
     } catch (err: any) {
       showToast(`Failed to ${action} ${id}: ${err.message}`, 'error')
     } finally {
-      // Small delay before unmarking busy to allow the next poll to catch the real status
       setTimeout(() => {
         setBusyApps((prev) => {
           const next = new Set(prev)
@@ -137,11 +206,86 @@ export default function App() {
     }
   }
 
-  // Render
+  // Smart launch for Normal User Mode
+  const handleUserLaunch = async (id: string, route: string) => {
+    setBusyApps((prev) => new Set(prev).add(id))
+    showToast(`Starting ${id}… please wait`, 'info')
+
+    setApps((currentApps) =>
+      currentApps.map((a) => (a.name === id ? { ...a, status: 'starting' } : a))
+    )
+
+    try {
+      await startApplication(id)
+      showToast(`Application started! Opening…`, 'success')
+      
+      // Short delay for healthcheck to stabilize, then open
+      setTimeout(() => {
+        window.open(getAppUrl(route), '_blank', 'noreferrer')
+        refreshApps()
+      }, 1200)
+    } catch (err: any) {
+      showToast(`Failed to start application: ${err.message}`, 'error')
+    } finally {
+      setTimeout(() => {
+        setBusyApps((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+        refreshApps()
+      }, 1000)
+    }
+  }
+
+  // Partition applications: User-facing vs Infrastructure
+  const { userFacingApps, infraApps, stats } = useMemo(() => {
+    const userFacing: ApplicationDetail[] = []
+    const infra: ApplicationDetail[] = []
+    let runningCount = 0
+    let stoppedCount = 0
+    let pinnedCount = 0
+
+    const query = searchQuery.trim().toLowerCase()
+    const filtered = query
+      ? apps.filter(
+          (a) =>
+            a.name.toLowerCase().includes(query) ||
+            a.routes?.some((r) => r.toLowerCase().includes(query)) ||
+            (a.dependencies || []).some((d) => d.toLowerCase().includes(query))
+        )
+      : apps
+
+    for (const app of filtered) {
+      if (app.status === 'running') runningCount++
+      else stoppedCount++
+      if ((app.tier ?? 2) <= 1) pinnedCount++
+
+      if (isUserFacingApp(app)) {
+        userFacing.push(app)
+      } else {
+        infra.push(app)
+      }
+    }
+
+    return {
+      userFacingApps: userFacing,
+      infraApps: infra,
+      stats: {
+        total: apps.length,
+        running: runningCount,
+        stopped: stoppedCount,
+        pinned: pinnedCount,
+      },
+    }
+  }, [apps, searchQuery])
+
+  // ── Auth Gates ─────────────────────────────────────────────────────────────
+
   if (authState.status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center text-slate-100 selection:bg-indigo-500/30">
-        <span className="animate-spin-fast inline-block w-8 h-8 border-[3px] border-indigo-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100 selection:bg-indigo-500/30">
+        <span className="animate-spin-fast inline-block w-8 h-8 border-[3px] border-violet-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(124,58,237,0.5)]" />
       </div>
     )
   }
@@ -154,113 +298,285 @@ export default function App() {
     )
   }
 
-  const storeApps = apps.filter((a) => a.routes?.length > 0)
+  // ── Render Dashboard ───────────────────────────────────────────────────────
 
   return (
-    <div className="flex min-h-screen text-slate-100 selection:bg-indigo-500/30">
-      <Sidebar 
-        currentView={currentView}
-        onNavClick={setCurrentView}
+    <div className="flex min-h-screen text-slate-100 selection:bg-violet-500/30">
+      <Sidebar
         user={user!}
+        role={role}
+        onRoleChange={handleRoleChange}
+        isAdmin={userIsAdmin}
+        engineConnected={!error}
         onLogout={logout}
       />
-      
+
       <main className="flex-1 ml-64 p-8 relative">
-        <div className="max-w-6xl mx-auto">
-          
-          <header className="mb-10 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto space-y-8">
+          {/* Header */}
+          <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-white/5">
             <div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-white mb-2 shadow-indigo-500/20 drop-shadow-lg">
-                {currentView === 'store' ? 'App Store' : 'Developer Console'}
-              </h1>
-              <p className="text-slate-400">
-                {currentView === 'store' ? 'Launch your favorite applications.' : 'Manage your microservices and infrastructure.'}
-              </p>
+              {role === 'user' ? (
+                <>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-violet-400">
+                      Application Launchpad
+                    </span>
+                  </div>
+                  <h1 className="text-3xl font-extrabold tracking-tight text-white shadow-indigo-500/20 drop-shadow-lg">
+                    Welcome back, {user?.displayName} 👋
+                  </h1>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Select an application below to launch and start playing.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-violet-400">
+                      Developer Control Plane
+                    </span>
+                    <span className="rounded bg-violet-500/20 px-2 py-0.5 text-[10px] font-bold text-violet-300 border border-violet-500/30">
+                      Tier-Based Lifecycle
+                    </span>
+                  </div>
+                  <h1 className="text-3xl font-extrabold tracking-tight text-white drop-shadow-lg">
+                    Microservice Dashboard
+                  </h1>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Manage service dependencies, state tiers, and container lifecycles.
+                  </p>
+                </>
+              )}
             </div>
-            
-            <div className="flex gap-3">
-              <button className="btn-micro bg-indigo-500 hover:bg-indigo-400 text-white px-5 py-2.5 rounded-xl font-semibold shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all">
-                New App
+
+            {/* Quick Actions / Refresh */}
+            <div className="flex items-center gap-3">
+              {role === 'developer' && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                  <input
+                    type="text"
+                    placeholder="Search services…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="rounded-xl border border-white/10 bg-slate-900/60 pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                  />
+                </div>
+              )}
+
+              <button
+                onClick={handleManualRefresh}
+                disabled={refreshing}
+                title="Refresh services"
+                className="btn-micro flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/60 px-4 py-2 text-xs font-semibold text-slate-300 transition-all hover:bg-slate-800 hover:text-white"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
               </button>
             </div>
           </header>
 
+          {/* Developer Mode Stats Bar */}
+          {role === 'developer' && !loading && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="glass rounded-2xl p-4 border border-white/5 bg-slate-900/40">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  Total Services
+                </span>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-white">{stats.total}</span>
+                  <span className="text-xs text-slate-500">managed</span>
+                </div>
+              </div>
+
+              <div className="glass rounded-2xl p-4 border border-white/5 bg-slate-900/40">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  Running
+                </span>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-emerald-400">{stats.running}</span>
+                  <span className="text-xs text-emerald-400/60">active</span>
+                </div>
+              </div>
+
+              <div className="glass rounded-2xl p-4 border border-white/5 bg-slate-900/40">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  Stopped / Idle
+                </span>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-slate-400">{stats.stopped}</span>
+                  <span className="text-xs text-slate-500">cold</span>
+                </div>
+              </div>
+
+              <div className="glass rounded-2xl p-4 border border-white/5 bg-slate-900/40">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  Pinned (Tiers 0 & 1)
+                </span>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-indigo-400">{stats.pinned}</span>
+                  <span className="text-xs text-indigo-400/60">always on</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Loading or Error States */}
           {loading && apps.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-              <span className="animate-spin-fast inline-block w-8 h-8 border-[3px] border-indigo-500 border-t-transparent rounded-full mb-4 shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
-              <p className="text-lg">Connecting to Pulse Engine...</p>
+              <span className="animate-spin-fast inline-block w-8 h-8 border-[3px] border-violet-500 border-t-transparent rounded-full mb-4 shadow-[0_0_15px_rgba(124,58,237,0.5)]" />
+              <p className="text-lg font-medium text-slate-300">Connecting to Pulse Engine…</p>
             </div>
           ) : error ? (
             <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-8 text-center glass-panel">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/20 shadow-[0_0_20px_rgba(244,63,94,0.3)]">
                 <span className="text-xl">⚠️</span>
               </div>
-              <h3 className="mb-2 text-lg font-bold text-rose-300">Connection Failed</h3>
-              <p className="text-rose-400/80 mb-6">{error}</p>
+              <h3 className="mb-2 text-lg font-bold text-rose-300">Pulse Engine Unreachable</h3>
+              <p className="text-rose-400/80 mb-6 text-sm">{error}</p>
               <button
                 onClick={refreshApps}
                 className="btn-micro bg-white/10 hover:bg-white/20 text-white px-5 py-2.5 rounded-xl font-medium transition-colors"
               >
-                Try Again
+                Reconnect
               </button>
             </div>
-          ) : currentView === 'console' ? (
-            <motion.div 
-              layout
-              className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
-            >
-              <AnimatePresence mode="popLayout">
-                {apps.map((app) => (
-                  <AppCard
-                    key={app.name}
-                    app={app}
-                    busy={busyApps.has(app.name)}
-                    onAction={handleAction}
-                  />
-                ))}
-              </AnimatePresence>
-            </motion.div>
-          ) : (
-            <motion.div 
-              layout
-              className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
-            >
-              <AnimatePresence mode="popLayout">
-                {storeApps.map((app) => (
-                  <motion.div
-                    key={app.name}
-                    layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50 p-6 shadow-2xl glass-panel transition-all hover:bg-slate-800/50"
-                  >
-                    <div>
-                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-3xl mb-4">
-                        {app.name.includes('quiz') ? '🧠' : '🚀'}
-                      </div>
-                      <h3 className="text-xl font-bold text-white mb-2 capitalize">{app.name.replace('-ui', '')}</h3>
-                      <p className="text-slate-400 text-sm mb-6">
-                        {app.description || 'A Pulse Application'}
-                      </p>
-                    </div>
-                    <a
-                      href={getAppUrl(app.routes[0])}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn-primary w-full py-3 text-center block"
-                    >
-                      Play Now
-                    </a>
-                  </motion.div>
-                ))}
-                {storeApps.length === 0 && (
-                  <p className="text-slate-400 col-span-full py-12 text-center">No apps available in the store yet.</p>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          )}
+          ) : role === 'user' ? (
+            /* ─────────────────────────────────────────────────────────────
+               NORMAL USER VIEW: Clean, friendly hero cards only
+               ───────────────────────────────────────────────────────────── */
+            <section className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <AnimatePresence mode="popLayout">
+                  {userFacingApps.map((app) => (
+                    <UserAppCard
+                      key={app.name}
+                      app={app}
+                      busy={busyApps.has(app.name)}
+                      onLaunch={handleUserLaunch}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
 
+              {userFacingApps.length === 0 && (
+                <div className="rounded-3xl border border-white/5 bg-slate-900/40 p-12 text-center glass">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-3xl">
+                    🚀
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-1">No Applications Available</h3>
+                  <p className="text-sm text-slate-400 max-w-sm mx-auto">
+                    There are currently no active user-facing applications configured in Pulse.
+                  </p>
+                </div>
+              )}
+            </section>
+          ) : (
+            /* ─────────────────────────────────────────────────────────────
+               DEVELOPER MODE VIEW: Grouped sections with rich cards & controls
+               ───────────────────────────────────────────────────────────── */
+            <div className="space-y-10">
+              {/* Section 1: User-Facing Applications */}
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-violet-400" />
+                    <h2 className="text-lg font-bold tracking-tight text-white">
+                      User Applications
+                    </h2>
+                    <span className="rounded-full bg-violet-500/20 px-2 py-0.5 text-xs font-semibold text-violet-300 border border-violet-500/30">
+                      {userFacingApps.length}
+                    </span>
+                  </div>
+                  <span className="text-xs text-slate-500">
+                    Frontends cold-started on demand
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <AnimatePresence mode="popLayout">
+                    {userFacingApps.map((app) => (
+                      <AppCard
+                        key={app.name}
+                        app={app}
+                        busy={busyApps.has(app.name)}
+                        onAction={handleAction}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </div>
+
+                {userFacingApps.length === 0 && (
+                  <p className="rounded-2xl border border-white/5 bg-slate-900/30 p-8 text-center text-sm text-slate-500">
+                    No user-facing applications match the filter.
+                  </p>
+                )}
+              </section>
+
+              {/* Section 2: Infrastructure & Backend Services (Collapsible) */}
+              <section className="rounded-3xl border border-white/5 bg-slate-900/20 p-6 glass">
+                <div
+                  onClick={() => setInfraOpen((prev) => !prev)}
+                  className="flex items-center justify-between cursor-pointer select-none pb-2"
+                >
+                  <div className="flex items-center gap-3">
+                    <Server className="h-4 w-4 text-indigo-400" />
+                    <h2 className="text-lg font-bold tracking-tight text-white">
+                      Infrastructure & Microservices
+                    </h2>
+                    <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs font-semibold text-indigo-300 border border-indigo-500/30">
+                      {infraApps.length}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+                    <span className="text-xs font-medium">
+                      {infraOpen ? 'Collapse' : 'Expand'}
+                    </span>
+                    {infraOpen ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-500 mb-6">
+                  Core control-plane, pinned services (Identity, Persona), and backing APIs.
+                </p>
+
+                <AnimatePresence>
+                  {infraOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pt-2">
+                        {infraApps.map((app) => (
+                          <AppCard
+                            key={app.name}
+                            app={app}
+                            busy={busyApps.has(app.name)}
+                            onAction={handleAction}
+                          />
+                        ))}
+                      </div>
+
+                      {infraApps.length === 0 && (
+                        <p className="py-8 text-center text-sm text-slate-500">
+                          No infrastructure services found.
+                        </p>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </section>
+            </div>
+          )}
         </div>
       </main>
 

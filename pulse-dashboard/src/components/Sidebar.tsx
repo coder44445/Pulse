@@ -1,55 +1,132 @@
 import React from 'react'
-import { Activity, LayoutDashboard, Server, Settings } from 'lucide-react'
-
+import { Activity, LayoutDashboard, Terminal, Sparkles, Shield, User } from 'lucide-react'
 import { UserBadge, type AuthUser } from 'pulse-ui-core'
 
 interface SidebarProps {
-  currentView: 'store' | 'console'
-  onNavClick: (item: 'store' | 'console') => void
   user: AuthUser
+  role: 'developer' | 'user'
+  onRoleChange: (role: 'developer' | 'user') => void
+  isAdmin: boolean
+  engineConnected: boolean
   onLogout: () => void
 }
 
-export function Sidebar({ currentView, onNavClick, user, onLogout }: SidebarProps) {
+export function Sidebar({
+  user,
+  role,
+  onRoleChange,
+  isAdmin,
+  engineConnected,
+  onLogout,
+}: SidebarProps) {
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 border-r border-white/5 bg-slate-950/50 backdrop-blur-xl flex flex-col z-40">
+    <aside className="fixed left-0 top-0 h-screen w-64 border-r border-white/5 bg-slate-950/70 backdrop-blur-2xl flex flex-col z-40">
+      {/* Brand Header */}
       <div className="flex h-16 items-center gap-3 border-b border-white/5 px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.3)] border border-indigo-500/30">
-          <Activity className="h-5 w-5 text-indigo-400" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600/30 to-fuchsia-600/20 border border-violet-500/40 shadow-[0_0_20px_rgba(124,58,237,0.3)]">
+          <span className="text-lg">⚡</span>
         </div>
-        <span className="text-xl font-bold tracking-tight text-white shadow-indigo-500/50 drop-shadow-md">
-          Pulse
-        </span>
-      </div>
-      
-      <div className="flex-1 overflow-y-auto py-6 px-4">
-        <nav className="flex flex-col gap-2">
-          <button
-            onClick={() => onNavClick('store')}
-            className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
-              currentView === 'store'
-                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]'
-                : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-            }`}
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            App Store
-          </button>
-          <button
-            onClick={() => onNavClick('console')}
-            className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
-              currentView === 'console'
-                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]'
-                : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-            }`}
-          >
-            <Server className="h-4 w-4" />
-            Developer Console
-          </button>
-        </nav>
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-black tracking-tight text-white drop-shadow-md">
+              Pulse
+            </span>
+            <span className="rounded-md bg-violet-500/20 px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider text-violet-300 border border-violet-500/30">
+              Hub
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div className="border-t border-white/5 p-4">
+      <div className="flex-1 overflow-y-auto py-6 px-4 flex flex-col justify-between">
+        <div className="space-y-6">
+          {/* Main Navigation */}
+          <div>
+            <div className="mb-2 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Overview
+            </div>
+            <button
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all bg-violet-600/15 text-violet-300 border border-violet-500/30 shadow-[0_0_15px_rgba(124,58,237,0.15)]"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              <span>Dashboard</span>
+            </button>
+          </div>
+
+          {/* Mode Switcher */}
+          <div>
+            <div className="mb-2 flex items-center justify-between px-3">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                View Mode
+              </span>
+              {isAdmin && (
+                <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400 border border-amber-500/20">
+                  <Shield className="h-2.5 w-2.5" />
+                  Admin
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-900/80 p-1 border border-white/5">
+              <button
+                type="button"
+                onClick={() => onRoleChange('user')}
+                className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
+                  role === 'user'
+                    ? 'bg-violet-600 text-white shadow-[0_2px_10px_rgba(124,58,237,0.4)]'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <User className="h-3.5 w-3.5" />
+                <span>User</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onRoleChange('developer')}
+                className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
+                  role === 'developer'
+                    ? 'bg-violet-600 text-white shadow-[0_2px_10px_rgba(124,58,237,0.4)]'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Terminal className="h-3.5 w-3.5" />
+                <span>Developer</span>
+              </button>
+            </div>
+            <p className="mt-2 px-2 text-[11px] text-slate-500 leading-tight">
+              {role === 'user'
+                ? 'Showing simplified user view with direct app launch.'
+                : 'Showing developer console with tiers, stacks & service controls.'}
+            </p>
+          </div>
+        </div>
+
+        {/* Engine Status pill */}
+        <div className="rounded-xl border border-white/5 bg-slate-900/60 p-3.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-400">Pulse Engine</span>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  engineConnected
+                    ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
+                    : 'bg-rose-500 animate-pulse'
+                }`}
+              />
+              <span className="text-[11px] font-semibold text-slate-300">
+                {engineConnected ? 'Connected' : 'Offline'}
+              </span>
+            </div>
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500 font-mono">
+            localhost:7777 / :9000
+          </p>
+        </div>
+      </div>
+
+      {/* Footer User Badge */}
+      <div className="border-t border-white/5 p-4 bg-slate-950/80">
         <UserBadge user={user} onLogout={onLogout} />
       </div>
     </aside>
