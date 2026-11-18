@@ -252,11 +252,13 @@ export default function App() {
     }
   }
 
-  // Normal User Launch: Navigates through Port 9000 Gateway
+  // Normal User Launch: Navigates in the SAME window/tab through Port 9000 Gateway
   // The gateway automatically cold-starts on-demand services without requiring admin permissions!
   const handleUserLaunch = (id: string, route: string) => {
-    showToast(`Launching ${id} via Gateway…`, 'info')
-    window.open(getAppUrl(route), '_blank', 'noreferrer')
+    showToast(`Launching ${id}…`, 'info')
+    setTimeout(() => {
+      window.location.href = getAppUrl(route)
+    }, 350)
   }
 
   // Partition applications: User-facing vs Infrastructure

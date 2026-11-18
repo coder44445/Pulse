@@ -1,6 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ExternalLink, Play, Sparkles } from 'lucide-react'
+import { ArrowRight, Play, Sparkles } from 'lucide-react'
 import { ApplicationDetail } from '../types'
 import { getAppMeta } from '../appMeta'
 
@@ -12,21 +12,24 @@ interface UserAppCardProps {
 
 function getAppUrl(route: string) {
   if (/^https?:\/\//i.test(route)) return route
+  // If running behind port 9000, keep current origin path
+  if (typeof window !== 'undefined' && window.location.port === '9000') {
+    return route.startsWith('/') ? route : `/${route}`
+  }
   return `http://localhost:9000${route.startsWith('/') ? route : `/${route}`}`
 }
 
 export function UserAppCard({ app, busy, onLaunch }: UserAppCardProps) {
+  const [launching, setLaunching] = useState(false)
   const meta = getAppMeta(app.name, app.routes)
   const isRunning = app.status === 'running'
-  const isStarting = app.status === 'starting' || busy
+  const isStarting = app.status === 'starting' || busy || launching
   const primaryRoute = app.routes?.[0] || ''
 
-  const handleLaunchClick = () => {
-    if (isRunning) {
-      window.open(getAppUrl(primaryRoute), '_blank', 'noreferrer')
-    } else {
-      onLaunch(app.name, primaryRoute)
-    }
+  const handleLaunch = () => {
+    if (isStarting) return
+    setLaunching(true)
+    onLaunch(app.name, primaryRoute)
   }
 
   return (
@@ -37,7 +40,12 @@ export function UserAppCard({ app, busy, onLaunch }: UserAppCardProps) {
       exit={{ opacity: 0, scale: 0.95 }}
       whileHover={{ y: -4 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-slate-900/60 p-7 shadow-2xl glass-panel transition-all hover:border-violet-500/40 hover:bg-slate-800/60 hover:shadow-[0_12px_40px_rgba(124,58,237,0.18)]"
+      onClick={handleLaunch}
+      className={`group relative flex flex-col justify-between overflow-hidden rounded-3xl border p-7 shadow-2xl glass-panel transition-all cursor-pointer select-none ${
+        isStarting
+          ? 'border-violet-500/60 bg-slate-900/80 shadow-[0_0_35px_rgba(124,58,237,0.3)] ring-1 ring-violet-500/30'
+          : 'border-white/10 bg-slate-900/60 hover:border-violet-500/40 hover:bg-slate-800/60 hover:shadow-[0_12px_40px_rgba(124,58,237,0.18)]'
+      }`}
     >
       {/* Background ambient glow */}
       <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-violet-600/10 blur-3xl transition-opacity group-hover:opacity-100" />
@@ -64,7 +72,7 @@ export function UserAppCard({ app, busy, onLaunch }: UserAppCardProps) {
                 }`}
               />
               <span className="text-xs font-medium text-slate-300">
-                {isRunning ? 'Online' : isStarting ? 'Starting…' : 'Ready'}
+                {isStarting ? 'Starting…' : isRunning ? 'Online' : 'Ready'}
               </span>
             </div>
           </div>
@@ -79,12 +87,18 @@ export function UserAppCard({ app, busy, onLaunch }: UserAppCardProps) {
         </p>
       </div>
 
-      {/* Launch Action */}
+      {/* Launch Action Button */}
       <div className="pt-2">
         <button
-          onClick={handleLaunchClick}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            handleLaunch()
+          }}
           disabled={isStarting}
-          className="btn-primary w-full py-4 text-center font-semibold text-base tracking-wide flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(124,58,237,0.35)]"
+          className={`btn-primary w-full py-4 text-center font-semibold text-base tracking-wide flex items-center justify-center gap-2.5 transition-all shadow-[0_0_25px_rgba(124,58,237,0.35)] ${
+            isStarting ? 'opacity-90' : 'group-hover:shadow-[0_0_35px_rgba(124,58,237,0.55)]'
+          }`}
         >
           {isStarting ? (
             <>
@@ -92,18 +106,19 @@ export function UserAppCard({ app, busy, onLaunch }: UserAppCardProps) {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              <span>Starting App…</span>
+              <span>Connecting & Launching…</span>
             </>
           ) : isRunning ? (
             <>
               <Sparkles className="w-5 h-5" />
               <span>Launch App</span>
-              <ExternalLink className="w-4 h-4 ml-1 opacity-70" />
+              <ArrowRight className="w-4 h-4 ml-0.5 transition-transform group-hover:translate-x-1" />
             </>
           ) : (
             <>
-              <Play className="w-5 h-5 fill-current" />
+              <Play className="w-4 h-4 fill-current" />
               <span>Start & Launch</span>
+              <ArrowRight className="w-4 h-4 ml-0.5 transition-transform group-hover:translate-x-1" />
             </>
           )}
         </button>
